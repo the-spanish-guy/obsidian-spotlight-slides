@@ -65,6 +65,20 @@ pre {
 }
 pre code { padding: 0; background: none; font-size: 0.75em; }
 
+/* highlight.js tokens, used when the Marp highlighter is selected */
+.hljs-comment, .hljs-quote { color: var(--code-comment); }
+.hljs-keyword, .hljs-selector-tag, .hljs-doctag { color: var(--code-keyword); }
+.hljs-string, .hljs-regexp, .hljs-addition { color: var(--code-string); }
+.hljs-number, .hljs-literal, .hljs-bullet { color: var(--code-value); }
+.hljs-title, .hljs-section, .hljs-function .hljs-title { color: var(--code-function); }
+.hljs-built_in, .hljs-type, .hljs-class .hljs-title { color: var(--code-important); }
+.hljs-attr, .hljs-attribute, .hljs-property, .hljs-variable, .hljs-params { color: var(--code-property); }
+.hljs-tag, .hljs-name, .hljs-selector-id, .hljs-selector-class { color: var(--code-tag); }
+.hljs-meta, .hljs-symbol, .hljs-operator, .hljs-punctuation { color: var(--code-operator); }
+.hljs-deletion { color: var(--text-error); }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: bold; }
+
 table { border-collapse: collapse; margin: 0 0 0.8em; }
 th, td { border: 1px solid var(--background-modifier-border); padding: 0.3em 0.7em; }
 th { background: var(--background-secondary); }
