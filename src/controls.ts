@@ -20,7 +20,12 @@ export class Controls {
     this.button(toolbar, 'chevron-left', 'Previous slide', actions.previous);
     this.counterEl = toolbar.createSpan({ cls: 'spotlight-counter' });
     this.button(toolbar, 'chevron-right', 'Next slide', actions.next);
-    this.button(toolbar, 'maximize', 'Toggle full screen', actions.toggleFullscreen);
+    this.button(
+      toolbar,
+      'maximize',
+      'Toggle full screen',
+      actions.toggleFullscreen,
+    );
   }
 
   update(current: number, total: number): void {
@@ -42,8 +47,7 @@ export class Controls {
     setIcon(button, icon);
     button.addEventListener('click', (evt) => {
       onClick();
-      // The button must not keep the focus, or Space would press it again.
-      button.blur();
+      parent.parentElement?.focus();
       evt.stopPropagation();
     });
   }

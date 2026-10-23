@@ -141,6 +141,7 @@ export class SpotlightView extends ItemView {
     );
 
     this.show(this.current);
+    this.contentEl.focus({ preventScroll: true });
   }
 
   // Finds an image the way Obsidian resolves a link, then falls back to a path

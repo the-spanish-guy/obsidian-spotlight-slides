@@ -63,7 +63,7 @@
 .spotlight-controls {
   position: absolute;
   right: var(--size-4-4);
-  bottom: var(--size-4-4);
+  bottom: calc(var(--status-bar-height, 24px) + var(--size-4-8));
   display: flex;
   align-items: center;
   gap: var(--size-2-2);
@@ -85,4 +85,8 @@
   color: var(--text-muted);
   font-size: var(--font-ui-small);
   font-variant-numeric: tabular-nums;
+}
+
+.spotlight-view:fullscreen .spotlight-controls {
+  bottom: var(--size-4-4);
 }
