@@ -1,0 +1,26 @@
+{
+  "formatter": {
+    "enabled": true,
+    "useEditorconfig": true
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single"
+    }
+  },
+  "linter": {
+    "enabled": false
+  },
+  "assist": {
+    "enabled": false
+  },
+  "files": {
+    "includes": [
+      "**",
+      "!**/main.js",
+      "!**/package-lock.json",
+      "!**/docs",
+      "!**/data.json"
+    ]
+  }
+}
