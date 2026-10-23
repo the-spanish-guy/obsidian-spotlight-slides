@@ -6,6 +6,7 @@ import {
   type ViewStateResult,
   type WorkspaceLeaf,
 } from 'obsidian';
+import { Controls } from './controls';
 import type SpotlightSlidesPlugin from './main';
 import { resolveRelative } from './render/images';
 import { renderCodeBlocksWithObsidian } from './render/postprocess';
@@ -22,6 +23,7 @@ export class SpotlightView extends ItemView {
   private stageEl!: HTMLElement;
   private sheet: CSSStyleSheet | undefined;
   private deckComponent: Component | undefined;
+  private controls: Controls | undefined;
   private current = 0;
 
   private readonly scheduleRender = debounce(
@@ -66,6 +68,11 @@ export class SpotlightView extends ItemView {
     this.contentEl.addClass('spotlight-view');
     this.contentEl.tabIndex = 0;
     this.stageEl = this.contentEl.createDiv({ cls: 'spotlight-stage' });
+    this.controls = new Controls(this.contentEl, {
+      previous: () => this.show(this.current - 1),
+      next: () => this.show(this.current + 1),
+      toggleFullscreen: () => this.toggleFullscreen(),
+    });
 
     this.registerDomEvent(this.contentEl, 'keydown', (evt) =>
       this.onKeydown(evt),
@@ -160,6 +167,13 @@ export class SpotlightView extends ItemView {
     slides.forEach((slide, i) =>
       slide.toggleClass('spotlight-hidden', i !== this.current),
     );
+    this.controls?.update(this.current, slides.length);
+  }
+
+  private toggleFullscreen(): void {
+    const doc = this.contentEl.ownerDocument;
+    if (doc.fullscreenElement) void doc.exitFullscreen();
+    else void this.contentEl.requestFullscreen();
   }
 
   private onKeydown(evt: KeyboardEvent): void {
@@ -181,6 +195,10 @@ export class SpotlightView extends ItemView {
         break;
       case 'End':
         this.show(last);
+        break;
+      case 'f':
+      case 'F':
+        this.toggleFullscreen();
         break;
       default:
         return;

@@ -40,3 +40,49 @@
   max-height: 480px;
   height: auto;
 }
+
+/* Controls over the slide */
+.spotlight-view {
+  position: relative;
+}
+
+.spotlight-progress {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 3px;
+  background: var(--background-modifier-border);
+  pointer-events: none;
+}
+
+.spotlight-progress-bar {
+  height: 100%;
+  background: var(--interactive-accent);
+  transition: width 0.2s ease;
+}
+
+.spotlight-controls {
+  position: absolute;
+  right: var(--size-4-4);
+  bottom: var(--size-4-4);
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-2);
+  padding: var(--size-2-2) var(--size-4-2);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.spotlight-view:hover .spotlight-controls,
+.spotlight-controls:focus-within {
+  opacity: 1;
+}
+
+.spotlight-counter {
+  min-width: 4em;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  font-variant-numeric: tabular-nums;
+}
