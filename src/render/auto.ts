@@ -5,10 +5,9 @@
 // each section heading (the shallowest level that appears at least twice) and at
 // every horizontal rule; the note's own front matter is left out.
 
-const FRONT_MATTER =
-  /^---[ \t]*\r?\n([\s\S]*?)\r?\n(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/;
+import { fencedLines, FRONT_MATTER } from './markdown';
+
 const MARP_FLAG = /^marp:[ \t]*["']?true["']?[ \t]*$/im;
-const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})/;
 const HEADING = /^ {0,3}(#{1,6})(?:[ \t]|$)/;
 const RULE = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
 
@@ -35,22 +34,11 @@ interface Line {
 }
 
 function classify(lines: string[]): Line[] {
-  let fence: { char: string; size: number } | undefined;
+  const fenced = fencedLines(lines);
 
   return lines.map((text, i) => {
     const plain: Line = { text, heading: 0, rule: false };
-
-    if (fence) {
-      const close = new RegExp(`^ {0,3}${fence.char}{${fence.size},}[ \\t]*$`);
-      if (close.test(text)) fence = undefined;
-      return plain;
-    }
-
-    const open = FENCE_OPEN.exec(text);
-    if (open?.[1]) {
-      fence = { char: open[1].charAt(0), size: open[1].length };
-      return plain;
-    }
+    if (fenced[i]) return plain;
 
     const heading = HEADING.exec(text);
     if (heading?.[1]) return { text, heading: heading[1].length, rule: false };

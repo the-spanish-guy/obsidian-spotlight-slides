@@ -1,5 +1,6 @@
 import { Marp } from '@marp-team/marp-core';
 import { toMarpMarkdown } from './auto';
+import { type ImageResolver, rewriteImages } from './images';
 import { OBSIDIAN_THEME_CSS } from './theme';
 
 export interface RenderedDeck {
@@ -18,7 +19,12 @@ function getMarp(): Marp {
   return marp;
 }
 
-export function renderDeck(markdown: string): RenderedDeck {
-  const { html, css } = getMarp().render(toMarpMarkdown(markdown));
+export function renderDeck(
+  markdown: string,
+  resolveImage: ImageResolver,
+): RenderedDeck {
+  const { html, css } = getMarp().render(
+    toMarpMarkdown(rewriteImages(markdown, resolveImage)),
+  );
   return { html, css };
 }

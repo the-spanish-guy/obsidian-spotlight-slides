@@ -2,10 +2,12 @@ import {
   Component,
   debounce,
   ItemView,
+  type TFile,
   type ViewStateResult,
   type WorkspaceLeaf,
 } from 'obsidian';
 import type SpotlightSlidesPlugin from './main';
+import { resolveRelative } from './render/images';
 import { renderCodeBlocksWithObsidian } from './render/postprocess';
 import { renderDeck } from './render/slides';
 
@@ -110,7 +112,9 @@ export class SpotlightView extends ItemView {
     }
 
     const markdown = await this.app.vault.cachedRead(file);
-    const { html, css } = renderDeck(markdown);
+    const { html, css } = renderDeck(markdown, (linkpath) =>
+      this.resolveImage(linkpath, file),
+    );
 
     this.applyCss(css);
     this.releaseDeck();
@@ -130,6 +134,17 @@ export class SpotlightView extends ItemView {
     );
 
     this.show(this.current);
+  }
+
+  // Finds an image the way Obsidian resolves a link, then falls back to a path
+  // relative to the note's own folder.
+  private resolveImage(linkpath: string, note: TFile): string | null {
+    const file =
+      this.app.metadataCache.getFirstLinkpathDest(linkpath, note.path) ??
+      this.app.vault.getFileByPath(
+        resolveRelative(note.parent?.path ?? '', linkpath),
+      );
+    return file ? this.app.vault.getResourcePath(file) : null;
   }
 
   private slides(): HTMLElement[] {
