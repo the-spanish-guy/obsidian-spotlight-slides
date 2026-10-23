@@ -2,7 +2,7 @@
 	"id": "spotlight-slides",
 	"name": "Spotlight Slides",
 	"version": "0.0.1",
-	"minAppVersion": "1.0.0",
+	"minAppVersion": "1.13.0",
 	"description": "Present any note as slides inside Obsidian, powered by Marp.",
 	"author": "the-spanish-guy",
 	"authorUrl": "https://github.com/the-spanish-guy",
