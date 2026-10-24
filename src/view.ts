@@ -11,6 +11,7 @@ import type SpotlightSlidesPlugin from './main';
 import { resolveRelative } from './render/images';
 import { renderCodeBlocksWithObsidian } from './render/postprocess';
 import { renderDeck } from './render/slides';
+import { ScrollIndicator } from './scroll-indicator';
 
 export const VIEW_TYPE_SPOTLIGHT = 'spotlight-slides-view';
 
@@ -24,6 +25,7 @@ export class SpotlightView extends ItemView {
   private sheet: CSSStyleSheet | undefined;
   private deckComponent: Component | undefined;
   private controls: Controls | undefined;
+  private scrollIndicator: ScrollIndicator | undefined;
   private current = 0;
 
   private readonly scheduleRender = debounce(
@@ -74,9 +76,21 @@ export class SpotlightView extends ItemView {
       toggleFullscreen: () => this.toggleFullscreen(),
     });
 
+    this.scrollIndicator = new ScrollIndicator(this.contentEl);
+
     this.registerDomEvent(this.contentEl, 'keydown', (evt) =>
       this.onKeydown(evt),
     );
+
+    this.registerDomEvent(
+      this.stageEl,
+      'scroll',
+      () => this.updateScrollIndicator(),
+      true,
+    );
+    const resizes = new ResizeObserver(() => this.updateScrollIndicator());
+    resizes.observe(this.stageEl);
+    this.register(() => resizes.disconnect());
     this.registerEvent(
       this.app.vault.on('modify', (file) => {
         if (file.path === this.filePath) this.scheduleRender();
@@ -169,6 +183,14 @@ export class SpotlightView extends ItemView {
       slide.toggleClass('spotlight-hidden', i !== this.current),
     );
     this.controls?.update(this.current, slides.length);
+    this.updateScrollIndicator();
+  }
+
+  private updateScrollIndicator(): void {
+    const section = this.stageEl.querySelector<HTMLElement>(
+      'svg[data-marpit-svg]:not(.spotlight-hidden) section',
+    );
+    this.scrollIndicator?.update(section);
   }
 
   private toggleFullscreen(): void {

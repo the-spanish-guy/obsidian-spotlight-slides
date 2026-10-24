@@ -10,7 +10,10 @@ section {
 	padding: 56px 72px;
 	display: flex;
 	flex-direction: column;
-	justify-content: center;
+	/* "safe" keeps the top reachable by scrolling when the content is taller */
+	justify-content: safe center;
+	overflow-x: hidden;
+	overflow-y: auto;
 	background: var(--background-primary);
 	color: var(--text-normal);
 	font-family: var(--font-text);
@@ -19,6 +22,9 @@ section {
 }
 
 section > * { margin-top: 0; }
+
+/* The native scrollbar is hidden; the view draws its own indicator */
+section { scrollbar-width: none; }
 
 h1, h2, h3, h4, h5, h6 {
 	font-family: var(--font-interface);
@@ -84,6 +90,8 @@ th, td { border: 1px solid var(--background-modifier-border); padding: 0.3em 0.7
 th { background: var(--background-secondary); }
 
 img { max-width: 100%; background: none; }
+/* Images without a size set through w:/h: must not outgrow the slide */
+img:not([style*="width"]):not([style*="height"]) { max-height: 520px; }
 
 section::after {
 	color: var(--text-faint);
