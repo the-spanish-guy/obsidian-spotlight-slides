@@ -1,5 +1,6 @@
 import { Marp } from '@marp-team/marp-core';
 import { toMarpMarkdown } from './auto';
+import { extractCallouts } from './callouts';
 import { type ImageResolver, rewriteImages } from './images';
 import { type Formula, extractMath } from './math';
 import { OBSIDIAN_THEME_CSS } from './theme';
@@ -8,6 +9,7 @@ export interface RenderedDeck {
   html: string;
   css: string;
   formulas: Formula[];
+  callouts: string[];
 }
 
 // Marp is instantiated on first use so it costs nothing at plugin startup.
@@ -30,9 +32,10 @@ export function renderDeck(
   markdown: string,
   resolveImage: ImageResolver,
 ): RenderedDeck {
-  const { markdown: text, formulas } = extractMath(markdown);
+  const { markdown: withoutCallouts, callouts } = extractCallouts(markdown);
+  const { markdown: text, formulas } = extractMath(withoutCallouts);
   const { html, css } = getMarp().render(
     toMarpMarkdown(rewriteImages(text, resolveImage)),
   );
-  return { html, css, formulas };
+  return { html, css, formulas, callouts };
 }

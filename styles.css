@@ -35,7 +35,7 @@
   margin: 0;
 }
 
-.spotlight-block .copy-code-button {
+.spotlight-stage .copy-code-button {
   display: none;
 }
 
@@ -130,4 +130,18 @@
 
 .spotlight-view:hover .spotlight-scroll-thumb {
   opacity: 1;
+}
+
+/* Callouts rendered by Obsidian */
+.spotlight-callout {
+  margin: 0 0 0.8em;
+}
+
+.spotlight-callout .callout {
+  margin: 0;
+}
+
+/* The slide theme gives every paragraph a bottom margin; the callout already pads */
+.spotlight-callout .callout-content > :last-child {
+  margin-bottom: 0;
 }
