@@ -35,6 +35,10 @@
   margin: 0;
 }
 
+.spotlight-block .copy-code-button {
+  display: none;
+}
+
 /* Obsidian's own code styles do not reach the slide, so set the layout here */
 .spotlight-stage .spotlight-block pre,
 .spotlight-stage .spotlight-block pre code {

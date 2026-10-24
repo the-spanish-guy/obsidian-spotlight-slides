@@ -7,7 +7,10 @@ import {
 } from 'obsidian';
 import { Controls } from './controls';
 import { resolveRelative } from './render/images';
-import { renderCodeBlocksWithObsidian } from './render/postprocess';
+import {
+  renderCodeBlocksWithObsidian,
+  renderMathWithObsidian,
+} from './render/postprocess';
 import { renderDeck } from './render/slides';
 import { ScrollIndicator } from './scroll-indicator';
 
@@ -120,7 +123,7 @@ export class SpotlightView extends ItemView {
     }
 
     const markdown = await this.app.vault.cachedRead(file);
-    const { html, css } = renderDeck(markdown, (linkpath) =>
+    const { html, css, formulas } = renderDeck(markdown, (linkpath) =>
       this.resolveImage(linkpath, file),
     );
 
@@ -139,6 +142,7 @@ export class SpotlightView extends ItemView {
       this.deckComponent,
       file.path,
     );
+    await renderMathWithObsidian(this.stageEl, formulas);
 
     this.show(this.current);
     this.contentEl.focus({ preventScroll: true });

@@ -1,4 +1,12 @@
-import { type App, type Component, MarkdownRenderer } from 'obsidian';
+import {
+  type App,
+  type Component,
+  finishRenderMath,
+  loadMathJax,
+  MarkdownRenderer,
+  renderMath,
+} from 'obsidian';
+import { type Formula, MATH_TOKEN } from './math';
 
 function fence(code: string, lang: string): string {
   const longestRun = Math.max(
@@ -42,4 +50,57 @@ export async function renderCodeBlocksWithObsidian(
       pre.replaceWith(host);
     }),
   );
+}
+
+function mathElement({ source, display }: Formula): HTMLElement {
+  const host = display
+    ? createDiv({ cls: 'math math-block' })
+    : createSpan({ cls: 'math math-inline' });
+  try {
+    host.appendChild(renderMath(source, display));
+  } catch {
+    host.setText(display ? `$$${source}$$` : `$${source}$`);
+  }
+  return host;
+}
+
+export async function renderMathWithObsidian(
+  root: HTMLElement,
+  formulas: Formula[],
+): Promise<void> {
+  if (formulas.length === 0) return;
+  await loadMathJax();
+
+  const walker = root.ownerDocument.createTreeWalker(
+    root,
+    NodeFilter.SHOW_TEXT,
+  );
+  const texts: Text[] = [];
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (new RegExp(MATH_TOKEN.source).test(node.nodeValue ?? '')) {
+      texts.push(node as Text);
+    }
+  }
+
+  for (const text of texts) {
+    const parts = (text.nodeValue ?? '').split(MATH_TOKEN);
+    const nodes = parts.flatMap((part, i): Node[] => {
+      if (i % 2 === 0)
+        return part === '' ? [] : [document.createTextNode(part)];
+      const formula = formulas[Number(part)];
+      return formula ? [mathElement(formula)] : [];
+    });
+
+    const paragraph = text.parentElement;
+    const alone =
+      paragraph?.tagName === 'P' &&
+      paragraph.childNodes.length === 1 &&
+      nodes.length === 1 &&
+      nodes[0] instanceof HTMLElement &&
+      nodes[0].hasClass('math-block');
+    if (alone) paragraph.replaceWith(...nodes);
+    else text.replaceWith(...nodes);
+  }
+
+  await finishRenderMath();
 }
