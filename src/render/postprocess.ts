@@ -1,9 +1,4 @@
 import { type App, type Component, MarkdownRenderer } from 'obsidian';
-import type { HighlighterChoice } from '../settings';
-
-// Languages whose rendering belongs to Obsidian (or other plugins) even when
-// Marp is the chosen highlighter.
-const OBSIDIAN_ONLY_LANGUAGES = new Set(['mermaid']);
 
 function fence(code: string, lang: string): string {
   const longestRun = Math.max(
@@ -26,18 +21,15 @@ export async function renderCodeBlocksWithObsidian(
   app: App,
   component: Component,
   sourcePath: string,
-  highlighter: HighlighterChoice,
 ): Promise<void> {
   const blocks = Array.from(root.querySelectorAll<HTMLElement>('pre > code'));
 
   await Promise.all(
     blocks.map(async (code) => {
-      const lang = languageOf(code);
-      const useObsidian =
-        highlighter === 'obsidian' || OBSIDIAN_ONLY_LANGUAGES.has(lang);
       const pre = code.parentElement;
-      if (!useObsidian || !pre) return;
+      if (!pre) return;
 
+      const lang = languageOf(code);
       const host = createDiv({ cls: 'spotlight-block' });
       host.dataset.lang = lang;
       await MarkdownRenderer.render(

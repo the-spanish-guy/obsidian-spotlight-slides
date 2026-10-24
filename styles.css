@@ -35,6 +35,14 @@
   margin: 0;
 }
 
+/* Obsidian's own code styles do not reach the slide, so set the layout here */
+.spotlight-stage .spotlight-block pre,
+.spotlight-stage .spotlight-block pre code {
+  line-height: 1.35;
+  tab-size: 4;
+  white-space: pre;
+}
+
 .spotlight-block .mermaid svg {
   max-width: 100%;
   max-height: 460px;

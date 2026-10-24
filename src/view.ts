@@ -4,10 +4,8 @@ import {
   ItemView,
   type TFile,
   type ViewStateResult,
-  type WorkspaceLeaf,
 } from 'obsidian';
 import { Controls } from './controls';
-import type SpotlightSlidesPlugin from './main';
 import { resolveRelative } from './render/images';
 import { renderCodeBlocksWithObsidian } from './render/postprocess';
 import { renderDeck } from './render/slides';
@@ -33,13 +31,6 @@ export class SpotlightView extends ItemView {
     300,
     true,
   );
-
-  constructor(
-    leaf: WorkspaceLeaf,
-    private readonly plugin: SpotlightSlidesPlugin,
-  ) {
-    super(leaf);
-  }
 
   getViewType(): string {
     return VIEW_TYPE_SPOTLIGHT;
@@ -110,10 +101,6 @@ export class SpotlightView extends ItemView {
     return Promise.resolve();
   }
 
-  refresh(): void {
-    this.scheduleRender();
-  }
-
   private fileName(): string {
     return this.filePath?.split('/').pop()?.replace(/\.md$/, '') ?? '';
   }
@@ -151,7 +138,6 @@ export class SpotlightView extends ItemView {
       this.app,
       this.deckComponent,
       file.path,
-      this.plugin.settings.highlighter,
     );
 
     this.show(this.current);

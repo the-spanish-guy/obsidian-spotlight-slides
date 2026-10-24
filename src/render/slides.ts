@@ -13,7 +13,11 @@ let marp: Marp | undefined;
 
 function getMarp(): Marp {
   if (!marp) {
-    marp = new Marp({ html: false, script: false });
+    marp = new Marp({
+      html: false,
+      script: false,
+      emoji: { shortcode: false, unicode: false },
+    });
     marp.themeSet.default = marp.themeSet.add(OBSIDIAN_THEME_CSS);
   }
   return marp;
