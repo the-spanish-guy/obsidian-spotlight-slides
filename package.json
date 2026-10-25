@@ -20,6 +20,7 @@
     "eslint": "9.39.5",
     "eslint-plugin-obsidianmd": "0.4.2",
     "globals": "17.13.0",
+    "happy-dom": "21.0.4",
     "jiti": "2.7.0",
     "obsidian": "1.14.4",
     "typescript": "6.0.3",

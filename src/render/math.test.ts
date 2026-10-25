@@ -40,6 +40,15 @@ describe('inline math', () => {
     expect(extractMath(md).markdown).toBe(md);
   });
 
+  it('does not open a formula on an escaped dollar', () => {
+    // Without the escape rule this would be the formula `a`.
+    expect(sources('\\$a$')).toEqual([]);
+  });
+
+  it('does not close a formula on an escaped dollar', () => {
+    expect(sources('$a\\$')).toEqual([]);
+  });
+
   it('honors an escaped dollar', () => {
     const md = 'custa \\$5 e \\$6';
     expect(extractMath(md).markdown).toBe(md);
