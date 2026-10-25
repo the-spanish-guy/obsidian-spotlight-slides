@@ -1,4 +1,4 @@
-import { fencedLines, FRONT_MATTER } from './markdown';
+import { codeSpanEnd, fencedLines, FRONT_MATTER } from './markdown';
 
 export interface Formula {
   source: string;
@@ -85,25 +85,6 @@ function replaceMath(text: string, formulas: Formula[]): string {
     }
   }
   return result;
-}
-
-// Index just past a code span that opens at `start`, or past the opening
-// backticks alone when it never closes.
-function codeSpanEnd(text: string, start: number): number {
-  let size = 0;
-  while (text.charAt(start + size) === '`') size++;
-  const marks = '`'.repeat(size);
-
-  for (
-    let at = text.indexOf(marks, start + size);
-    at !== -1;
-    at = text.indexOf(marks, at + 1)
-  ) {
-    if (text.charAt(at - 1) !== '`' && text.charAt(at + size) !== '`') {
-      return at + size;
-    }
-  }
-  return start + size;
 }
 
 // Index of the `$$` that closes display math, or -1.

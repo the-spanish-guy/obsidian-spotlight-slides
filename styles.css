@@ -166,3 +166,20 @@
 .spotlight-embed .pdf-embed {
   height: 520px;
 }
+
+/* Task lists rendered by Obsidian */
+.spotlight-tasks {
+  margin: 0 0 0.8em;
+}
+
+.spotlight-tasks input[type='checkbox'] {
+  pointer-events: none;
+}
+
+/* A link to a note that does not exist, as Obsidian shows it */
+.spotlight-stage a.internal-link.is-unresolved {
+  color: var(--link-unresolved-color);
+  opacity: var(--link-unresolved-opacity);
+  text-decoration-style: var(--link-unresolved-decoration-style);
+  text-decoration-color: var(--link-unresolved-decoration-color);
+}

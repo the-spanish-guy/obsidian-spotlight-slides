@@ -7,12 +7,7 @@ import {
 } from 'obsidian';
 import { Controls } from './controls';
 import { resolveRelative } from './render/images';
-import {
-  renderCalloutsWithObsidian,
-  renderCodeBlocksWithObsidian,
-  renderEmbedsWithObsidian,
-  renderMathWithObsidian,
-} from './render/postprocess';
+import { postprocessDeck } from './render/postprocess';
 import { renderDeck } from './render/slides';
 import { ScrollIndicator } from './scroll-indicator';
 
@@ -77,6 +72,9 @@ export class SpotlightView extends ItemView {
     this.registerDomEvent(this.contentEl, 'keydown', (evt) =>
       this.onKeydown(evt),
     );
+    this.registerDomEvent(this.stageEl, 'click', (evt) =>
+      this.onLinkClick(evt),
+    );
 
     this.registerDomEvent(
       this.stageEl,
@@ -125,40 +123,28 @@ export class SpotlightView extends ItemView {
     }
 
     const markdown = await this.app.vault.cachedRead(file);
-    const { html, css, formulas, callouts, embeds } = renderDeck(markdown, (linkpath) =>
+    const deck = renderDeck(markdown, (linkpath) =>
       this.resolveImage(linkpath, file),
     );
 
-    this.applyCss(css);
+    this.applyCss(deck.css);
     this.releaseDeck();
     this.deckComponent = new Component();
     this.addChild(this.deckComponent);
 
-    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const doc = new DOMParser().parseFromString(deck.html, 'text/html');
     this.stageEl.empty();
     this.stageEl.append(...Array.from(doc.body.childNodes));
 
-    await renderCodeBlocksWithObsidian(
-      this.stageEl,
-      this.app,
-      this.deckComponent,
-      file.path,
+    await postprocessDeck(
+      {
+        root: this.stageEl,
+        app: this.app,
+        component: this.deckComponent,
+        sourcePath: file.path,
+      },
+      deck,
     );
-    await renderCalloutsWithObsidian(
-      this.stageEl,
-      this.app,
-      this.deckComponent,
-      file.path,
-      callouts,
-    );
-    await renderEmbedsWithObsidian(
-      this.stageEl,
-      this.app,
-      this.deckComponent,
-      file.path,
-      embeds,
-    );
-    await renderMathWithObsidian(this.stageEl, formulas);
 
     this.show(this.current);
     this.contentEl.focus({ preventScroll: true });
@@ -203,6 +189,18 @@ export class SpotlightView extends ItemView {
     const doc = this.contentEl.ownerDocument;
     if (doc.fullscreenElement) void doc.exitFullscreen();
     else void this.contentEl.requestFullscreen();
+  }
+
+  // A link must not take the app away from the presentation: external ones open
+  // in the browser, and the rest (internal links, tags) do nothing.
+  private onLinkClick(evt: MouseEvent): void {
+    const link = (evt.target as HTMLElement).closest('a');
+    if (!link) return;
+
+    evt.preventDefault();
+    evt.stopPropagation();
+    const href = link.getAttribute('href') ?? '';
+    if (/^https?:\/\//i.test(href)) window.open(href);
   }
 
   private onKeydown(evt: KeyboardEvent): void {

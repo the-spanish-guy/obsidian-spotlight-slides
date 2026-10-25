@@ -3,7 +3,9 @@ import { toMarpMarkdown } from './auto';
 import { extractCallouts } from './callouts';
 import { extractEmbeds } from './embeds';
 import { type ImageResolver, rewriteImages } from './images';
-import { type Formula, extractMath } from './math';
+import { extractInline } from './inline';
+import { extractMath, type Formula } from './math';
+import { extractTasks } from './tasks';
 import { OBSIDIAN_THEME_CSS } from './theme';
 
 export interface RenderedDeck {
@@ -11,7 +13,9 @@ export interface RenderedDeck {
   css: string;
   formulas: Formula[];
   callouts: string[];
+  tasks: string[];
   embeds: string[];
+  inline: string[];
 }
 
 // Marp is instantiated on first use so it costs nothing at plugin startup.
@@ -30,15 +34,28 @@ function getMarp(): Marp {
   return marp;
 }
 
+// Blocks come first, so what sits inside a callout or a task list is left to
+// Obsidian whole; the inline pieces and the images come last.
 export function renderDeck(
   markdown: string,
   resolveImage: ImageResolver,
 ): RenderedDeck {
-  const { markdown: withoutCallouts, callouts } = extractCallouts(markdown);
-  const { markdown: withoutEmbeds, embeds } = extractEmbeds(withoutCallouts);
-  const { markdown: text, formulas } = extractMath(withoutEmbeds);
+  const withoutCallouts = extractCallouts(markdown);
+  const withoutTasks = extractTasks(withoutCallouts.markdown);
+  const withoutEmbeds = extractEmbeds(withoutTasks.markdown);
+  const withoutMath = extractMath(withoutEmbeds.markdown);
+  const withoutInline = extractInline(withoutMath.markdown);
+
   const { html, css } = getMarp().render(
-    toMarpMarkdown(rewriteImages(text, resolveImage)),
+    toMarpMarkdown(rewriteImages(withoutInline.markdown, resolveImage)),
   );
-  return { html, css, formulas, callouts, embeds };
+  return {
+    html,
+    css,
+    formulas: withoutMath.formulas,
+    callouts: withoutCallouts.callouts,
+    tasks: withoutTasks.tasks,
+    embeds: withoutEmbeds.embeds,
+    inline: withoutInline.inline,
+  };
 }
