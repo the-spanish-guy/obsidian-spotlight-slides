@@ -8,6 +8,7 @@ import {
 } from 'obsidian';
 import { CALLOUT_TOKEN } from './callouts';
 import { EMBED_TOKEN } from './embeds';
+import { type Footnote, NOTE_TOKEN } from './footnotes';
 import { INLINE_TOKEN } from './inline';
 import { type Formula, MATH_TOKEN } from './math';
 import type { RenderedDeck } from './slides';
@@ -39,6 +40,7 @@ export async function postprocessDeck(
   );
   await renderEmbedsWithObsidian(context, deck.embeds);
   await renderInlineWithObsidian(context, deck.inline);
+  await renderFootnotesWithObsidian(context, deck.footnotes);
   await renderMathWithObsidian(context.root, deck.formulas);
 }
 
@@ -171,9 +173,10 @@ async function renderEmbedsWithObsidian(
 // Swaps the tokens left for links, tags and highlights with what Obsidian
 // renders for each: the nodes of the paragraph it makes around the piece.
 async function renderInlineWithObsidian(
-  { root, app, component, sourcePath }: Context,
+  context: Context,
   inline: string[],
 ): Promise<void> {
+  const { root } = context;
   if (inline.length === 0) return;
 
   const doc = root.ownerDocument;
@@ -190,12 +193,7 @@ async function renderInlineWithObsidian(
       const source = inline[Number(index)];
       if (source === undefined) return;
 
-      const host = createDiv();
-      await MarkdownRenderer.render(app, source, host, sourcePath, component);
-      markUnresolvedLinks(host, app, sourcePath);
-      const paragraph = host.firstElementChild;
-      const content = paragraph?.tagName === 'P' ? paragraph : host;
-      rendered.set(index, Array.from(content.childNodes));
+      rendered.set(index, await renderFragment(context, source));
     }),
   );
 
@@ -208,6 +206,64 @@ async function renderInlineWithObsidian(
         : (rendered.get(part) ?? []),
     );
     place(text, nodes, false);
+  }
+}
+
+// The nodes Obsidian renders for a piece of Markdown that is meant to sit in
+// the middle of a line: the content of the paragraph it makes around it.
+async function renderFragment(
+  { app, component, sourcePath }: Context,
+  source: string,
+): Promise<Node[]> {
+  const host = createDiv();
+  await MarkdownRenderer.render(app, source, host, sourcePath, component);
+  markUnresolvedLinks(host, app, sourcePath);
+  const paragraph = host.firstElementChild;
+  const content = paragraph?.tagName === 'P' ? paragraph : host;
+  return Array.from(content.childNodes);
+}
+
+// Swaps the tokens left for footnote references with a number, and adds the
+// notes of each slide at its foot. Numbers run per slide, as each slide is a
+// page of its own, and a note cited twice on a slide keeps one number.
+async function renderFootnotesWithObsidian(
+  context: Context,
+  footnotes: Footnote[],
+): Promise<void> {
+  if (footnotes.length === 0) return;
+
+  const doc = context.root.ownerDocument;
+  for (const section of context.root.querySelectorAll('section')) {
+    const numbers = new Map<string, number>();
+    const notes: Footnote[] = [];
+
+    for (const text of textsWithTokens(section, NOTE_TOKEN)) {
+      const nodes = splitTokens(text, NOTE_TOKEN).flatMap((part, i): Node[] => {
+        if (i % 2 === 0) return part === '' ? [] : [doc.createTextNode(part)];
+        const footnote = footnotes[Number(part)];
+        if (!footnote) return [];
+
+        if (!numbers.has(footnote.key)) {
+          notes.push(footnote);
+          numbers.set(footnote.key, notes.length);
+        }
+        return [
+          createEl('sup', {
+            cls: 'spotlight-footnote-ref',
+            text: String(numbers.get(footnote.key)),
+          }),
+        ];
+      });
+      place(text, nodes, false);
+    }
+
+    if (notes.length === 0) continue;
+    const foot = section.createDiv({ cls: 'spotlight-footnotes' });
+    for (const [i, note] of notes.entries()) {
+      const line = foot.createDiv({ cls: 'spotlight-footnote' });
+      line.createEl('sup', { text: String(i + 1) });
+      line.append(...(await renderFragment(context, note.text)));
+    }
   }
 }
 

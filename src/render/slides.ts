@@ -2,6 +2,7 @@ import { Marp } from '@marp-team/marp-core';
 import { toMarpMarkdown } from './auto';
 import { extractCallouts } from './callouts';
 import { extractEmbeds } from './embeds';
+import { extractFootnotes, type Footnote } from './footnotes';
 import { type ImageResolver, rewriteImages } from './images';
 import { extractInline } from './inline';
 import { extractMath, type Formula } from './math';
@@ -12,6 +13,7 @@ export interface RenderedDeck {
   html: string;
   css: string;
   formulas: Formula[];
+  footnotes: Footnote[];
   callouts: string[];
   tasks: string[];
   embeds: string[];
@@ -40,7 +42,8 @@ export function renderDeck(
   markdown: string,
   resolveImage: ImageResolver,
 ): RenderedDeck {
-  const withoutCallouts = extractCallouts(markdown);
+  const withoutFootnotes = extractFootnotes(markdown);
+  const withoutCallouts = extractCallouts(withoutFootnotes.markdown);
   const withoutTasks = extractTasks(withoutCallouts.markdown);
   const withoutEmbeds = extractEmbeds(withoutTasks.markdown);
   const withoutMath = extractMath(withoutEmbeds.markdown);
@@ -53,6 +56,7 @@ export function renderDeck(
     html,
     css,
     formulas: withoutMath.formulas,
+    footnotes: withoutFootnotes.footnotes,
     callouts: withoutCallouts.callouts,
     tasks: withoutTasks.tasks,
     embeds: withoutEmbeds.embeds,
