@@ -145,3 +145,24 @@
 .spotlight-callout .callout-content > :last-child {
   margin-bottom: 0;
 }
+
+/* Notes embedded with ![[nota]], rendered by Obsidian */
+.spotlight-embed {
+  margin: 0 0 0.8em;
+}
+
+.spotlight-embed .markdown-embed {
+  margin: 0;
+}
+
+.spotlight-embed .markdown-embed-content {
+  max-height: none;
+}
+
+.spotlight-embed .markdown-embed-link {
+  display: none;
+}
+
+.spotlight-embed .pdf-embed {
+  height: 520px;
+}

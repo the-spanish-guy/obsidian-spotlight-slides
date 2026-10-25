@@ -8,12 +8,12 @@
 // Images that cannot be resolved, external URLs, code fences and code spans are
 // left as they are.
 
-import { fencedLines, FRONT_MATTER } from './markdown';
+import { fencedLines, FRONT_MATTER, mapOutsideCodeSpans } from './markdown';
 
 // Maps a link path to the URL of the vault file, or null when there is none.
 export type ImageResolver = (linkpath: string) => string | null;
 
-const IMAGE_EXTENSIONS = new Set([
+export const IMAGE_EXTENSIONS = new Set([
   'png',
   'jpg',
   'jpeg',
@@ -27,7 +27,6 @@ const IMAGE_EXTENSIONS = new Set([
 const WIKI_EMBED = /!\[\[([^\]|\n]+?)(?:\|([^\]\n]*))?\]\]/g;
 const MARKDOWN_IMAGE =
   /!\[([^\]\n]*)\]\(\s*(<[^>\n]*>|[^)\s]*)(\s+(?:"[^"]*"|'[^']*'))?\s*\)/g;
-const CODE_SPAN = /(`+)(?!`)(.+?)(?<!`)\1(?!`)/g;
 const URL_SCHEME = /^(?:[a-z][a-z\d+.-]*:|\/\/|#)/i;
 
 export function rewriteImages(
@@ -39,7 +38,9 @@ export function rewriteImages(
   const fenced = fencedLines(lines.map((line) => line.replace(/\r$/, '')));
 
   const body = lines.map((line, i) =>
-    fenced[i] ? line : rewriteLine(line, resolve),
+    fenced[i]
+      ? line
+      : mapOutsideCodeSpans(line, (text) => rewriteText(text, resolve)),
   );
   return frontMatter + body.join('\n');
 }
@@ -52,18 +53,6 @@ export function resolveRelative(dir: string, path: string): string {
     else if (part !== '' && part !== '.') parts.push(part);
   }
   return parts.join('/');
-}
-
-function rewriteLine(line: string, resolve: ImageResolver): string {
-  let result = '';
-  let last = 0;
-
-  for (const span of line.matchAll(CODE_SPAN)) {
-    result += rewriteText(line.slice(last, span.index), resolve);
-    result += span[0];
-    last = span.index + span[0].length;
-  }
-  return result + rewriteText(line.slice(last), resolve);
 }
 
 function rewriteText(text: string, resolve: ImageResolver): string {

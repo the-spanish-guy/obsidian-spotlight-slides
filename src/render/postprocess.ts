@@ -7,6 +7,7 @@ import {
   renderMath,
 } from 'obsidian';
 import { CALLOUT_TOKEN } from './callouts';
+import { EMBED_TOKEN } from './embeds';
 import { type Formula, MATH_TOKEN } from './math';
 
 function fence(code: string, lang: string): string {
@@ -129,4 +130,50 @@ export async function renderCalloutsWithObsidian(
       paragraph.replaceWith(host);
     }),
   );
+}
+
+export async function renderEmbedsWithObsidian(
+  root: HTMLElement,
+  app: App,
+  component: Component,
+  sourcePath: string,
+  embeds: string[],
+): Promise<void> {
+  if (embeds.length === 0) return;
+
+  const doc = root.ownerDocument;
+  const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const texts: Text[] = [];
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (new RegExp(EMBED_TOKEN.source).test(node.nodeValue ?? '')) {
+      texts.push(node as Text);
+    }
+  }
+
+  for (const text of texts) {
+    // Splitting on a pattern with one group alternates text and embed index.
+    const parts = (text.nodeValue ?? '').split(EMBED_TOKEN);
+    const nodes: Node[] = [];
+    for (const [i, part] of parts.entries()) {
+      if (i % 2 === 0) {
+        if (part !== '') nodes.push(doc.createTextNode(part));
+        continue;
+      }
+      const source = embeds[Number(part)];
+      if (source === undefined) continue;
+
+      const host = createDiv({ cls: 'spotlight-embed' });
+      await MarkdownRenderer.render(app, source, host, sourcePath, component);
+      nodes.push(host);
+    }
+
+    // An embed alone in its paragraph replaces the paragraph.
+    const paragraph = text.parentElement;
+    const alone =
+      paragraph?.tagName === 'P' &&
+      paragraph.childNodes.length === 1 &&
+      nodes.length === 1;
+    if (alone) paragraph.replaceWith(...nodes);
+    else text.replaceWith(...nodes);
+  }
 }

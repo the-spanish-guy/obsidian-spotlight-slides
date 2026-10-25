@@ -10,6 +10,7 @@ import { resolveRelative } from './render/images';
 import {
   renderCalloutsWithObsidian,
   renderCodeBlocksWithObsidian,
+  renderEmbedsWithObsidian,
   renderMathWithObsidian,
 } from './render/postprocess';
 import { renderDeck } from './render/slides';
@@ -124,7 +125,7 @@ export class SpotlightView extends ItemView {
     }
 
     const markdown = await this.app.vault.cachedRead(file);
-    const { html, css, formulas, callouts } = renderDeck(markdown, (linkpath) =>
+    const { html, css, formulas, callouts, embeds } = renderDeck(markdown, (linkpath) =>
       this.resolveImage(linkpath, file),
     );
 
@@ -149,6 +150,13 @@ export class SpotlightView extends ItemView {
       this.deckComponent,
       file.path,
       callouts,
+    );
+    await renderEmbedsWithObsidian(
+      this.stageEl,
+      this.app,
+      this.deckComponent,
+      file.path,
+      embeds,
     );
     await renderMathWithObsidian(this.stageEl, formulas);
 

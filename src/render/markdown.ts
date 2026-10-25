@@ -25,3 +25,20 @@ export function fencedLines(lines: string[]): boolean[] {
     return false;
   });
 }
+
+const CODE_SPAN = /(`+)(?!`)(.+?)(?<!`)\1(?!`)/g;
+
+export function mapOutsideCodeSpans(
+  line: string,
+  fn: (text: string) => string,
+): string {
+  let result = '';
+  let last = 0;
+
+  for (const span of line.matchAll(CODE_SPAN)) {
+    result += fn(line.slice(last, span.index));
+    result += span[0];
+    last = span.index + span[0].length;
+  }
+  return result + fn(line.slice(last));
+}
