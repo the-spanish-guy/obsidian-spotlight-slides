@@ -68,6 +68,7 @@ export class TFile {
 }
 
 export class MarkdownView {
+  leaf: unknown = { id: 'note-leaf' };
   constructor(public file: TFile | null) {}
 }
 

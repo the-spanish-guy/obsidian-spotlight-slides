@@ -9,50 +9,51 @@ vi.mock('./view', () => ({
   },
 }));
 
+const presentNote = vi.fn((..._args: unknown[]) => Promise.resolve());
+vi.mock('./present', () => ({
+  presentNote: (...args: unknown[]) => presentNote(...args),
+}));
+
+interface Command {
+  id: string;
+  name: string;
+  checkCallback: (checking: boolean) => boolean;
+}
+
 interface FakePlugin {
   app: unknown;
   commands: Array<Record<string, unknown>>;
   ribbons: Array<{ icon: string; title: string; callback: () => void }>;
   views: Map<string, (leaf: unknown) => unknown>;
-  onload(): Promise<void>;
+  onload(): void;
 }
 
 function setup(active: MarkdownView | null = null) {
-  const leaf = {
-    setViewState: vi.fn(() => Promise.resolve()),
-    view: { containerEl: { focus: vi.fn() } },
-  };
-  const workspace = {
-    getActiveViewOfType: vi.fn(() => active),
-    getLeaf: vi.fn(() => leaf),
-  };
+  const workspace = { getActiveViewOfType: vi.fn(() => active) };
   // The real constructor takes an app and a manifest; the stand-in takes none.
   const plugin = new (SpotlightSlidesPlugin as unknown as new () => FakePlugin)();
   plugin.app = { workspace };
-  return { plugin, leaf, workspace };
+  plugin.onload();
+  return { plugin, workspace };
 }
 
-const command = (plugin: FakePlugin) => {
-  const found = plugin.commands[0];
-  if (!found) throw new Error('no command registered');
-  return found as {
-    id: string;
-    name: string;
-    checkCallback: (checking: boolean) => boolean;
-  };
-};
+const commands = (plugin: FakePlugin) => plugin.commands as unknown as Command[];
 
-const flush = () => new Promise((resolve) => setTimeout(resolve));
+const byId = (plugin: FakePlugin, id: string) => {
+  const found = commands(plugin).find((c) => c.id === id);
+  if (!found) throw new Error(`no command ${id}`);
+  return found;
+};
 
 let noteView: MarkdownView;
 beforeEach(() => {
+  presentNote.mockClear();
   noteView = new MarkdownView(new TFile('aulas/intro.md'));
 });
 
 describe('the plugin', () => {
-  it('registers its view, a ribbon icon and one command', async () => {
+  it('registers its view, a ribbon icon and three commands', () => {
     const { plugin } = setup();
-    await plugin.onload();
 
     expect(plugin.views.has('spotlight-slides-view')).toBe(true);
     expect(plugin.ribbons).toHaveLength(1);
@@ -60,16 +61,15 @@ describe('the plugin', () => {
       icon: 'presentation',
       title: 'Present current note',
     });
-    expect(plugin.commands).toHaveLength(1);
-    expect(command(plugin)).toMatchObject({
-      id: 'present-current-note',
-      name: 'Present current note',
-    });
+    expect(commands(plugin).map(({ id, name }) => ({ id, name }))).toEqual([
+      { id: 'present-current-note', name: 'Present current note' },
+      { id: 'present-to-the-side', name: 'Present to the side' },
+      { id: 'present-in-new-window', name: 'Present in new window' },
+    ]);
   });
 
-  it('creates the view for a leaf', async () => {
+  it('creates the view for a leaf', () => {
     const { plugin } = setup();
-    await plugin.onload();
 
     const leaf = {};
     const view = plugin.views.get('spotlight-slides-view')?.(leaf) as { leaf: unknown };
@@ -77,65 +77,57 @@ describe('the plugin', () => {
   });
 });
 
-describe('the command', () => {
-  it('is not offered without a note open', async () => {
-    const { plugin, workspace } = setup(null);
-    await plugin.onload();
+describe('the commands', () => {
+  const placements = [
+    ['present-current-note', 'tab'],
+    ['present-to-the-side', 'side'],
+    ['present-in-new-window', 'window'],
+  ] as const;
 
-    expect(command(plugin).checkCallback(true)).toBe(false);
-    expect(command(plugin).checkCallback(false)).toBe(false);
-    expect(workspace.getLeaf).not.toHaveBeenCalled();
+  it.each(placements)('%s is not offered without a note open', (id) => {
+    const { plugin } = setup(null);
+
+    expect(byId(plugin, id).checkCallback(true)).toBe(false);
+    expect(byId(plugin, id).checkCallback(false)).toBe(false);
+    expect(presentNote).not.toHaveBeenCalled();
   });
 
-  it('is not offered when the open view has no file', async () => {
+  it.each(placements)('%s is not offered when the view has no file', (id) => {
     const { plugin } = setup(new MarkdownView(null));
-    await plugin.onload();
-    expect(command(plugin).checkCallback(true)).toBe(false);
+    expect(byId(plugin, id).checkCallback(true)).toBe(false);
   });
 
-  it('is offered, and does nothing yet, while Obsidian only checks', async () => {
-    const { plugin, workspace } = setup(noteView);
-    await plugin.onload();
+  it.each(placements)('%s is offered, and does nothing while Obsidian only checks', (id) => {
+    const { plugin } = setup(noteView);
 
-    expect(command(plugin).checkCallback(true)).toBe(true);
-    expect(workspace.getLeaf).not.toHaveBeenCalled();
+    expect(byId(plugin, id).checkCallback(true)).toBe(true);
+    expect(presentNote).not.toHaveBeenCalled();
   });
 
-  it('opens the note in a new tab of the presentation view', async () => {
-    const { plugin, leaf, workspace } = setup(noteView);
-    await plugin.onload();
+  it.each(placements)('%s presents the note where it says', (id, placement) => {
+    const { plugin } = setup(noteView);
 
-    expect(command(plugin).checkCallback(false)).toBe(true);
-    await flush();
+    expect(byId(plugin, id).checkCallback(false)).toBe(true);
 
-    expect(workspace.getLeaf).toHaveBeenCalledWith('tab');
-    expect(leaf.setViewState).toHaveBeenCalledWith({
-      type: 'spotlight-slides-view',
-      active: true,
-      state: { file: 'aulas/intro.md' },
-    });
-    expect(leaf.view.containerEl.focus).toHaveBeenCalled();
+    expect(presentNote).toHaveBeenCalledTimes(1);
+    expect(presentNote).toHaveBeenCalledWith(plugin.app, noteView, placement);
   });
+});
 
-  it('does the same from the ribbon icon', async () => {
-    const { plugin, leaf } = setup(noteView);
-    await plugin.onload();
+describe('the ribbon icon', () => {
+  it('presents the note in a tab', () => {
+    const { plugin } = setup(noteView);
 
     plugin.ribbons[0]?.callback();
-    await flush();
 
-    expect(leaf.setViewState).toHaveBeenCalledWith(
-      expect.objectContaining({ state: { file: 'aulas/intro.md' } }),
-    );
+    expect(presentNote).toHaveBeenCalledWith(plugin.app, noteView, 'tab');
   });
 
-  it('does nothing from the ribbon icon without a note', async () => {
-    const { plugin, workspace } = setup(null);
-    await plugin.onload();
+  it('does nothing without a note', () => {
+    const { plugin } = setup(null);
 
     plugin.ribbons[0]?.callback();
-    await flush();
 
-    expect(workspace.getLeaf).not.toHaveBeenCalled();
+    expect(presentNote).not.toHaveBeenCalled();
   });
 });

@@ -1,36 +1,45 @@
 import { MarkdownView, Plugin } from 'obsidian';
+import { type Placement, presentNote } from './present';
 import { SpotlightView, VIEW_TYPE_SPOTLIGHT } from './view';
 
+const COMMANDS: ReadonlyArray<{ id: string; name: string; placement: Placement }> =
+  [
+    { id: 'present-current-note', name: 'Present current note', placement: 'tab' },
+    { id: 'present-to-the-side', name: 'Present to the side', placement: 'side' },
+    {
+      id: 'present-in-new-window',
+      name: 'Present in new window',
+      placement: 'window',
+    },
+  ];
+
 export default class SpotlightSlidesPlugin extends Plugin {
-  async onload() {
+  onload() {
     this.registerView(VIEW_TYPE_SPOTLIGHT, (leaf) => new SpotlightView(leaf));
 
-    this.addRibbonIcon(
-      'presentation',
-      'Present current note',
-      () => void this.presentActiveNote(),
+    this.addRibbonIcon('presentation', 'Present current note', () =>
+      this.present('tab'),
     );
-    this.addCommand({
-      id: 'present-current-note',
-      name: 'Present current note',
-      checkCallback: (checking) => {
-        const file = this.app.workspace.getActiveViewOfType(MarkdownView)?.file;
-        if (!file) return false;
-        if (!checking) void this.presentActiveNote();
-        return true;
-      },
-    });
+    for (const { id, name, placement } of COMMANDS) {
+      this.addCommand({
+        id,
+        name,
+        checkCallback: (checking) => {
+          if (!this.activeNote()) return false;
+          if (!checking) this.present(placement);
+          return true;
+        },
+      });
+    }
   }
 
-  private async presentActiveNote() {
-    const file = this.app.workspace.getActiveViewOfType(MarkdownView)?.file;
-    if (!file) return;
-    const leaf = this.app.workspace.getLeaf('tab');
-    await leaf.setViewState({
-      type: VIEW_TYPE_SPOTLIGHT,
-      active: true,
-      state: { file: file.path },
-    });
-    leaf.view.containerEl.focus();
+  private activeNote(): MarkdownView | null {
+    const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+    return view?.file ? view : null;
+  }
+
+  private present(placement: Placement) {
+    const source = this.activeNote();
+    if (source) void presentNote(this.app, source, placement);
   }
 }

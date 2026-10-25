@@ -4,7 +4,7 @@ import type { WorkspaceLeaf } from 'obsidian';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { postprocessDeck } from './render/postprocess';
 import { renderDeck } from './render/slides';
-import { TFile } from './test/obsidian';
+import { MarkdownView, TFile } from './test/obsidian';
 import { SpotlightView, VIEW_TYPE_SPOTLIGHT } from './view';
 
 vi.mock('./render/slides', () => ({ renderDeck: vi.fn() }));
@@ -49,6 +49,7 @@ function makeApp(content = '# nota') {
       return { key };
     });
 
+  const leaves: unknown[] = [];
   const files = new Map<string, TFile>([[NOTE, new TFile(NOTE, { path: 'aulas' })]]);
   const app = {
     vault: {
@@ -58,21 +59,43 @@ function makeApp(content = '# nota') {
       on: on('vault'),
     },
     metadataCache: { getFirstLinkpathDest: vi.fn((): TFile | null => null) },
-    workspace: { on: on('workspace') },
+    workspace: {
+      on: on('workspace'),
+      getLeavesOfType: vi.fn((): unknown[] => leaves),
+    },
   };
   const emit = (key: string, ...args: unknown[]) => {
     for (const handler of handlers.get(key) ?? []) handler(...args);
   };
-  return { app, files, emit };
+  return { app, files, emit, leaves };
 }
 
-async function openView(options: { file?: string; content?: string } = {}) {
+// An editor that has a note open; its text is what is being typed.
+function openEditor(leaves: unknown[], text: string, path = NOTE) {
+  const editor = {
+    text,
+    getValue() {
+      return this.text;
+    },
+  };
+  const view = Object.assign(new MarkdownView(new TFile(path)), { editor });
+  leaves.push({ view });
+  return editor;
+}
+
+async function openView(
+  options: { file?: string; content?: string; editorText?: string } = {},
+) {
   const harness = makeApp(options.content);
+  const editor =
+    options.editorText === undefined
+      ? undefined
+      : openEditor(harness.leaves, options.editorText);
   const view = new SpotlightView({ app: harness.app } as unknown as WorkspaceLeaf);
   document.body.append(view.containerEl);
   await (view as unknown as { onOpen(): Promise<void> }).onOpen();
   await view.setState({ file: options.file ?? NOTE }, {} as never);
-  return { view, ...harness };
+  return { view, editor, ...harness };
 }
 
 const slides = (view: SpotlightView) =>
@@ -150,6 +173,35 @@ describe('the view', () => {
   it('focuses itself, so the keys work without a click', async () => {
     const { view } = await openView();
     expect(document.activeElement).toBe(view.contentEl);
+  });
+
+  it('does not take the keyboard back when it renders again', async () => {
+    vi.useFakeTimers();
+    const { view, app, emit } = await openView();
+    const editor = document.createElement('textarea');
+    document.body.append(editor);
+    editor.focus();
+
+    app.vault.cachedRead.mockResolvedValue('# editada');
+    emit('vault:modify', { path: NOTE });
+    await vi.advanceTimersByTimeAsync(300);
+
+    expect(renderDeck).toHaveBeenCalledTimes(2);
+    expect(document.activeElement).toBe(editor);
+    expect(document.activeElement).not.toBe(view.contentEl);
+  });
+
+  it('does not take the keyboard back on a theme change either', async () => {
+    vi.useFakeTimers();
+    const { emit } = await openView();
+    const editor = document.createElement('textarea');
+    document.body.append(editor);
+    editor.focus();
+
+    emit('workspace:css-change');
+    await vi.advanceTimersByTimeAsync(300);
+
+    expect(document.activeElement).toBe(editor);
   });
 
   it('says so when the note is gone', async () => {
@@ -339,10 +391,11 @@ describe('editing the note', () => {
 
   it('stays on the same slide while the note is edited', async () => {
     vi.useFakeTimers();
-    const { view, emit } = await openView();
+    const { view, app, emit } = await openView();
     press(view, 'ArrowRight');
     expect(shown(view)).toBe(1);
 
+    app.vault.cachedRead.mockResolvedValue('# editada');
     emit('vault:modify', { path: NOTE });
     await vi.advanceTimersByTimeAsync(300);
 
@@ -352,10 +405,11 @@ describe('editing the note', () => {
 
   it('stays on the last slide when the deck gets shorter', async () => {
     vi.useFakeTimers();
-    const { view, emit } = await openView();
+    const { view, app, emit } = await openView();
     press(view, 'End');
 
     setDeck(slidesHtml(2));
+    app.vault.cachedRead.mockResolvedValue('# mais curta');
     emit('vault:modify', { path: NOTE });
     await vi.advanceTimersByTimeAsync(300);
 
@@ -364,12 +418,136 @@ describe('editing the note', () => {
   });
 });
 
+describe('following the editor', () => {
+  const typing = (path = NOTE) => ({ file: { path } });
+
+  it('reads the note from the editor that has it open, not from the file', async () => {
+    const { app } = await openView({ content: '# no disco', editorText: '# no editor' });
+
+    expect(renderDeck).toHaveBeenCalledWith('# no editor', expect.any(Function));
+    expect(app.vault.cachedRead).not.toHaveBeenCalled();
+  });
+
+  it('follows the typing without waiting for the file to be saved', async () => {
+    vi.useFakeTimers();
+    const { editor, app, emit } = await openView({ editorText: 'a' });
+
+    if (editor) editor.text = 'ab';
+    emit('workspace:editor-change', {}, typing());
+    expect(renderDeck).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(300);
+    expect(renderDeck).toHaveBeenCalledTimes(2);
+    expect(renderDeck).toHaveBeenLastCalledWith('ab', expect.any(Function));
+    expect(app.vault.cachedRead).not.toHaveBeenCalled();
+  });
+
+  it('waits for a pause in the typing', async () => {
+    vi.useFakeTimers();
+    const { editor, emit } = await openView({ editorText: 'a' });
+
+    for (const text of ['ab', 'abc', 'abcd']) {
+      if (editor) editor.text = text;
+      emit('workspace:editor-change', {}, typing());
+      await vi.advanceTimersByTimeAsync(200);
+    }
+    expect(renderDeck).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(300);
+    expect(renderDeck).toHaveBeenCalledTimes(2);
+    expect(renderDeck).toHaveBeenLastCalledWith('abcd', expect.any(Function));
+  });
+
+  it('ignores typing in another note', async () => {
+    vi.useFakeTimers();
+    const { editor, emit } = await openView({ editorText: 'a' });
+
+    // Only the note's own events count, whatever the editors hold.
+    if (editor) editor.text = 'ab';
+    emit('workspace:editor-change', {}, typing('outra.md'));
+    emit('workspace:editor-change', {}, { file: null });
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(renderDeck).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not draw the same text again when the save arrives', async () => {
+    vi.useFakeTimers();
+    const { editor, emit } = await openView({ editorText: 'a' });
+
+    if (editor) editor.text = 'ab';
+    emit('workspace:editor-change', {}, typing());
+    await vi.advanceTimersByTimeAsync(300);
+    expect(renderDeck).toHaveBeenCalledTimes(2);
+
+    emit('vault:modify', { path: NOTE });
+    await vi.advanceTimersByTimeAsync(300);
+    expect(renderDeck).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not draw the same text again when a save changes nothing', async () => {
+    vi.useFakeTimers();
+    const { emit } = await openView();
+
+    emit('vault:modify', { path: NOTE });
+    await vi.advanceTimersByTimeAsync(300);
+
+    expect(renderDeck).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the newest typing when a save of older text arrives', async () => {
+    vi.useFakeTimers();
+    const { editor, app, emit } = await openView({ editorText: 'a' });
+
+    if (editor) editor.text = 'abc';
+    app.vault.cachedRead.mockResolvedValue('ab');
+    emit('vault:modify', { path: NOTE });
+    await vi.advanceTimersByTimeAsync(300);
+
+    expect(renderDeck).toHaveBeenLastCalledWith('abc', expect.any(Function));
+  });
+
+  it('draws again on a theme change even though the text is the same', async () => {
+    vi.useFakeTimers();
+    const { emit } = await openView({ editorText: 'a' });
+
+    emit('workspace:css-change');
+    await vi.advanceTimersByTimeAsync(300);
+
+    expect(renderDeck).toHaveBeenCalledTimes(2);
+  });
+
+  it('draws again when it is given the note again', async () => {
+    const { view } = await openView();
+    await view.setState({ file: NOTE }, {} as never);
+    expect(renderDeck).toHaveBeenCalledTimes(2);
+  });
+
+  it('reads the file when no editor has the note open', async () => {
+    const { app } = await openView({ content: '# só no disco' });
+    expect(renderDeck).toHaveBeenCalledWith('# só no disco', expect.any(Function));
+    expect(app.vault.cachedRead).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores an editor that has another note open', async () => {
+    const harness = makeApp('# no disco');
+    openEditor(harness.leaves, '# de outra nota', 'outra.md');
+    const view = new SpotlightView({ app: harness.app } as unknown as WorkspaceLeaf);
+    document.body.append(view.containerEl);
+    await (view as unknown as { onOpen(): Promise<void> }).onOpen();
+    await view.setState({ file: NOTE }, {} as never);
+
+    expect(renderDeck).toHaveBeenCalledWith('# no disco', expect.any(Function));
+  });
+});
+
 describe('the slide styles', () => {
   it('adds the deck styles to the page and reuses them', async () => {
     vi.useFakeTimers();
-    const { emit } = await openView();
+    const { app, emit } = await openView();
     expect(document.adoptedStyleSheets).toHaveLength(1);
 
+    app.vault.cachedRead.mockResolvedValue('# editada');
     emit('vault:modify', { path: NOTE });
     await vi.advanceTimersByTimeAsync(300);
     expect(document.adoptedStyleSheets).toHaveLength(1);
@@ -389,6 +567,31 @@ describe('the slide styles', () => {
 
     await (view as unknown as { onClose(): Promise<void> }).onClose();
     expect(childrenOf(view)).toHaveLength(0);
+  });
+});
+
+describe('watching the size of the stage', () => {
+  it('uses the observer of its own window and lets go when unloaded', async () => {
+    const observed: Element[] = [];
+    const disconnect = vi.fn();
+    class SpyObserver {
+      observe(el: Element) {
+        observed.push(el);
+      }
+      disconnect = disconnect;
+    }
+    const original = window.ResizeObserver;
+    Object.assign(window, { ResizeObserver: SpyObserver });
+    try {
+      const { view } = await openView();
+      expect(observed).toEqual([view.contentEl.querySelector('.spotlight-stage')]);
+      expect(disconnect).not.toHaveBeenCalled();
+
+      view.unload();
+      expect(disconnect).toHaveBeenCalledTimes(1);
+    } finally {
+      Object.assign(window, { ResizeObserver: original });
+    }
   });
 });
 

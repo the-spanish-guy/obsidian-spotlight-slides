@@ -2,6 +2,7 @@ import {
   Component,
   debounce,
   ItemView,
+  MarkdownView,
   type TFile,
   type ViewStateResult,
 } from 'obsidian';
@@ -25,6 +26,8 @@ export class SpotlightView extends ItemView {
   private controls: Controls | undefined;
   private scrollIndicator: ScrollIndicator | undefined;
   private current = 0;
+  private focused = false;
+  private lastMarkdown: string | undefined;
 
   private readonly scheduleRender = debounce(
     () => void this.render(),
@@ -53,6 +56,7 @@ export class SpotlightView extends ItemView {
     result: ViewStateResult,
   ): Promise<void> {
     this.filePath = state.file;
+    this.lastMarkdown = undefined;
     await super.setState(state, result);
     await this.render();
   }
@@ -82,18 +86,29 @@ export class SpotlightView extends ItemView {
       () => this.updateScrollIndicator(),
       true,
     );
-    const resizes = new ResizeObserver(() => this.updateScrollIndicator());
+
+    const win = this.contentEl.ownerDocument.defaultView ?? window;
+    const resizes = new win.ResizeObserver(() => this.updateScrollIndicator());
     resizes.observe(this.stageEl);
     this.register(() => resizes.disconnect());
+    this.registerEvent(
+      this.app.workspace.on('editor-change', (_editor, info) => {
+        if (info.file?.path === this.filePath) this.scheduleRender();
+      }),
+    );
     this.registerEvent(
       this.app.vault.on('modify', (file) => {
         if (file.path === this.filePath) this.scheduleRender();
       }),
     );
     // Slides inherit the theme through CSS variables, but Mermaid bakes
-    // colors into its SVG, so the deck is rendered again on a theme change.
+    // colors into its SVG, so the deck is rendered again on a theme change,
+    // even though the text is the same.
     this.registerEvent(
-      this.app.workspace.on('css-change', () => this.scheduleRender()),
+      this.app.workspace.on('css-change', () => {
+        this.lastMarkdown = undefined;
+        this.scheduleRender();
+      }),
     );
     return Promise.resolve();
   }
@@ -114,6 +129,7 @@ export class SpotlightView extends ItemView {
       ? this.app.vault.getFileByPath(this.filePath)
       : null;
     if (!file) {
+      this.lastMarkdown = undefined;
       this.stageEl.empty();
       this.stageEl.createDiv({
         cls: 'spotlight-empty',
@@ -122,7 +138,10 @@ export class SpotlightView extends ItemView {
       return;
     }
 
-    const markdown = await this.app.vault.cachedRead(file);
+    const markdown = await this.currentText(file);
+    if (markdown === this.lastMarkdown) return;
+    this.lastMarkdown = markdown;
+
     const deck = renderDeck(markdown, (linkpath) =>
       this.resolveImage(linkpath, file),
     );
@@ -147,7 +166,20 @@ export class SpotlightView extends ItemView {
     );
 
     this.show(this.current);
-    this.contentEl.focus({ preventScroll: true });
+    if (!this.focused) {
+      this.focused = true;
+      this.contentEl.focus({ preventScroll: true });
+    }
+  }
+
+  private currentText(file: TFile): Promise<string> {
+    for (const leaf of this.app.workspace.getLeavesOfType('markdown')) {
+      const view = leaf.view;
+      if (view instanceof MarkdownView && view.file?.path === file.path) {
+        return Promise.resolve(view.editor.getValue());
+      }
+    }
+    return this.app.vault.cachedRead(file);
   }
 
   // Finds an image the way Obsidian resolves a link, then falls back to a path
