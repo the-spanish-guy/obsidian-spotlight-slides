@@ -31,7 +31,6 @@ export default class SpotlightSlidesPlugin extends Plugin {
       active: true,
       state: { file: file.path },
     });
-    await this.app.workspace.revealLeaf(leaf);
     leaf.view.containerEl.focus();
   }
 }

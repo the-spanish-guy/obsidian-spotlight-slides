@@ -1,7 +1,7 @@
 {
   "name": "obsidian-spotlight-slides",
   "version": "0.0.1",
-  "description": "Present any Obsidian note as slides, powered by Marp",
+  "description": "Present any note as slides inside Obsidian.",
   "main": "main.js",
   "type": "module",
   "scripts": {
