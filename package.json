@@ -50,5 +50,9 @@
   },
   "dependencies": {
     "@marp-team/marp-core": "4.4.0"
+  },
+  "overrides": {
+    "katex": "0.19.1",
+    "@xmldom/xmldom": "0.9.12"
   }
 }
