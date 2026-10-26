@@ -1,7 +1,7 @@
 {
   "id": "spotlight-slides",
   "name": "Spotlight Slides",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "minAppVersion": "1.5.7",
   "description": "Present any note as slides.",
   "author": "the-spanish-guy",
