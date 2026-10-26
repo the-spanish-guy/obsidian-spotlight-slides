@@ -5,6 +5,11 @@ export const stubRenderingEngines = {
       path: args.path,
       namespace: 'stub-rendering-engines',
     }));
+    build.onResolve({ filter: /^(fs|path|url|source-map-js)$/ }, (args) =>
+      /[\\/]node_modules[\\/]postcss[\\/]/.test(args.importer)
+        ? { path: args.path, namespace: 'stub-rendering-engines' }
+        : undefined,
+    );
     build.onLoad({ filter: /.*/, namespace: 'stub-rendering-engines' }, (args) => ({
       contents: args.path === 'highlight.js/lib/core'
         ? `const engine = { registerLanguage() {}, getLanguage() {} };

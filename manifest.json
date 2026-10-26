@@ -3,7 +3,7 @@
   "name": "Spotlight Slides",
   "version": "0.0.1",
   "minAppVersion": "1.5.7",
-  "description": "Present any note as slides inside Obsidian.",
+  "description": "Present any note as slides.",
   "author": "the-spanish-guy",
   "authorUrl": "https://github.com/the-spanish-guy",
   "isDesktopOnly": true
