@@ -2,6 +2,19 @@
   "name": "obsidian-spotlight-slides",
   "version": "0.0.1",
   "description": "Present any note as slides inside Obsidian.",
+  "author": {
+    "name": "the-spanish-guy",
+    "url": "https://github.com/the-spanish-guy"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/the-spanish-guy/obsidian-spotlight-slides.git"
+  },
+  "bugs": {
+    "url": "https://github.com/the-spanish-guy/obsidian-spotlight-slides/issues"
+  },
+  "homepage": "https://github.com/the-spanish-guy/obsidian-spotlight-slides#readme",
+  "private": true,
   "main": "main.js",
   "type": "module",
   "scripts": {
@@ -11,7 +24,13 @@
     "lint": "eslint .",
     "test": "vitest run"
   },
-  "keywords": [],
+  "keywords": [
+    "obsidian",
+    "obsidian-plugin",
+    "slides",
+    "presentation",
+    "marp"
+  ],
   "license": "MIT",
   "devDependencies": {
     "@codemirror/state": "6.7.6",

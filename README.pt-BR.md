@@ -144,7 +144,7 @@ O Spotlight Slides é construído sobre o [Marp Core](https://github.com/marp-te
 
 ## Desenvolvimento
 
-Você precisa do Node.js 20 ou mais novo.
+Você precisa do Node.js 22.12 ou mais novo.
 
 ```bash
 npm install
@@ -154,7 +154,7 @@ npm test         # testes unitários
 npm run lint
 ```
 
-Para experimentar, ligue a pasta do projeto a `<seu cofre>/.obsidian/plugins/spotlight-slides` e rode `npm run dev`. O arquivo `.hotreload` na raiz funciona com o plugin Hot-Reload.
+Para experimentar, ligue a pasta do projeto a `<seu cofre>/.obsidian/plugins/spotlight-slides` e rode `npm run dev`.
 
 Como funciona: as partes que o Marp não sabe renderizar são recortadas da nota e trocadas por marcas simples, o Marp transforma o resto em slides, e o Obsidian renderiza cada parte e a devolve ao lugar.
 
