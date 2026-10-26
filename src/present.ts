@@ -1,8 +1,6 @@
 import type { App, MarkdownView, WorkspaceLeaf } from 'obsidian';
 import { VIEW_TYPE_SPOTLIGHT } from './view';
 
-// Where the slides open: in a tab, beside the note (to edit with a preview), or
-// in a window of their own (to take to a projector or a second screen).
 export type Placement = 'tab' | 'side' | 'window';
 
 function openLeaf(app: App, placement: Placement): WorkspaceLeaf {
@@ -31,7 +29,7 @@ export async function presentNote(
   await leaf.setViewState({
     type: VIEW_TYPE_SPOTLIGHT,
     active: !beside,
-    state: { file: file.path },
+    state: { file: file.path, follow: beside },
   });
 
   // Beside the note, the keyboard stays with the editor, so the writer can go

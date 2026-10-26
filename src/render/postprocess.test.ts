@@ -21,6 +21,7 @@ const deck = (parts: Partial<RenderedDeck> = {}): RenderedDeck => ({
   tasks: [],
   embeds: [],
   inline: [],
+  slideStarts: [],
   ...parts,
 });
 

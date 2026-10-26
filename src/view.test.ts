@@ -25,7 +25,11 @@ function slidesHtml(count: number, firstSlideExtra = ''): string {
   return `<div class="marpit">${slides.join('')}</div>`;
 }
 
-function setDeck(html: string, css = 'section { color: red; }') {
+function setDeck(
+  html: string,
+  css = 'section { color: red; }',
+  slideStarts: number[] = [],
+) {
   vi.mocked(renderDeck).mockReturnValue({
     html,
     css,
@@ -35,6 +39,7 @@ function setDeck(html: string, css = 'section { color: red; }') {
     tasks: [],
     embeds: [],
     inline: [],
+    slideStarts,
   });
 }
 
@@ -70,12 +75,15 @@ function makeApp(content = '# nota') {
   return { app, files, emit, leaves };
 }
 
-// An editor that has a note open; its text is what is being typed.
 function openEditor(leaves: unknown[], text: string, path = NOTE) {
   const editor = {
     text,
+    line: 0,
     getValue() {
       return this.text;
+    },
+    getCursor() {
+      return { line: this.line, ch: 0 };
     },
   };
   const view = Object.assign(new MarkdownView(new TFile(path)), { editor });
@@ -84,7 +92,12 @@ function openEditor(leaves: unknown[], text: string, path = NOTE) {
 }
 
 async function openView(
-  options: { file?: string; content?: string; editorText?: string } = {},
+  options: {
+    file?: string;
+    content?: string;
+    editorText?: string;
+    follow?: boolean;
+  } = {},
 ) {
   const harness = makeApp(options.content);
   const editor =
@@ -94,7 +107,10 @@ async function openView(
   const view = new SpotlightView({ app: harness.app } as unknown as WorkspaceLeaf);
   document.body.append(view.containerEl);
   await (view as unknown as { onOpen(): Promise<void> }).onOpen();
-  await view.setState({ file: options.file ?? NOTE }, {} as never);
+  await view.setState(
+    { file: options.file ?? NOTE, follow: options.follow },
+    {} as never,
+  );
   return { view, editor, ...harness };
 }
 
@@ -142,13 +158,13 @@ describe('the view', () => {
     expect(view.getViewType()).toBe(VIEW_TYPE_SPOTLIGHT);
     expect(view.getIcon()).toBe('presentation');
     expect(view.getDisplayText()).toBe('Slides: intro');
-    expect(view.getState()).toEqual({ file: NOTE });
+    expect(view.getState()).toEqual({ file: NOTE, follow: false });
   });
 
   it('has a plain name before it has a note', () => {
     const view = new SpotlightView({ app: makeApp().app } as unknown as WorkspaceLeaf);
     expect(view.getDisplayText()).toBe('Spotlight Slides');
-    expect(view.getState()).toEqual({ file: undefined });
+    expect(view.getState()).toEqual({ file: undefined, follow: false });
   });
 
   it('renders the note it was given and shows the first slide', async () => {
@@ -538,6 +554,140 @@ describe('following the editor', () => {
     await view.setState({ file: NOTE }, {} as never);
 
     expect(renderDeck).toHaveBeenCalledWith('# no disco', expect.any(Function));
+  });
+});
+
+describe('following the cursor', () => {
+  // Three slides, starting at lines 0, 4 and 8 of the note.
+  beforeEach(() => setDeck(slidesHtml(3), undefined, [0, 4, 8]));
+
+  const typingAt = (editor: { line: number } | undefined, line: number) => {
+    if (editor) editor.line = line;
+  };
+
+  it('keeps the follow setting in the state of the view', async () => {
+    const { view } = await openView({ editorText: 'a', follow: true });
+    expect(view.getState()).toEqual({ file: NOTE, follow: true });
+  });
+
+  it('opens on the slide the cursor is on', async () => {
+    const harness = makeApp();
+    const editor = openEditor(harness.leaves, 'a');
+    editor.line = 5;
+    const view = new SpotlightView({ app: harness.app } as unknown as WorkspaceLeaf);
+    document.body.append(view.containerEl);
+    await (view as unknown as { onOpen(): Promise<void> }).onOpen();
+    await view.setState({ file: NOTE, follow: true }, {} as never);
+
+    expect(shown(view)).toBe(1);
+    expect(counter(view)).toBe('2 / 3');
+  });
+
+  it('moves to the slide of the line the cursor goes to', async () => {
+    const { view, editor } = await openView({ editorText: 'a', follow: true });
+    expect(shown(view)).toBe(0);
+
+    typingAt(editor, 9);
+    view.followCursor();
+    expect(shown(view)).toBe(2);
+
+    typingAt(editor, 4);
+    view.followCursor();
+    expect(shown(view)).toBe(1);
+
+    typingAt(editor, 3);
+    view.followCursor();
+    expect(shown(view)).toBe(0);
+  });
+
+  it('puts the first line of a slide in that slide, and the line before it in the last one', async () => {
+    const { view, editor } = await openView({ editorText: 'a', follow: true });
+
+    typingAt(editor, 8);
+    view.followCursor();
+    expect(shown(view)).toBe(2);
+
+    typingAt(editor, 7);
+    view.followCursor();
+    expect(shown(view)).toBe(1);
+  });
+
+  it('puts the lines before the first slide in the first slide', async () => {
+    setDeck(slidesHtml(3), undefined, [3, 6, 9]);
+    const { view, editor } = await openView({ editorText: 'a', follow: true });
+
+    typingAt(editor, 0);
+    view.followCursor();
+    expect(shown(view)).toBe(0);
+  });
+
+  it('does not follow when it was not asked to', async () => {
+    const { view, editor } = await openView({ editorText: 'a' });
+
+    typingAt(editor, 9);
+    view.followCursor();
+    expect(shown(view)).toBe(0);
+  });
+
+  it('does nothing when it cannot tell where the slides start', async () => {
+    setDeck(slidesHtml(3), undefined, []);
+    const { view, editor } = await openView({ editorText: 'a', follow: true });
+    press(view, 'ArrowRight');
+
+    typingAt(editor, 9);
+    view.followCursor();
+    expect(shown(view)).toBe(1);
+  });
+
+  it('does nothing when no editor has the note open', async () => {
+    const { view } = await openView({ follow: true });
+    press(view, 'ArrowRight');
+
+    view.followCursor();
+    expect(shown(view)).toBe(1);
+  });
+
+  it('ignores the cursor of an editor that has another note open', async () => {
+    const harness = makeApp();
+    const other = openEditor(harness.leaves, 'b', 'outra.md');
+    other.line = 9;
+    const view = new SpotlightView({ app: harness.app } as unknown as WorkspaceLeaf);
+    document.body.append(view.containerEl);
+    await (view as unknown as { onOpen(): Promise<void> }).onOpen();
+    await view.setState({ file: NOTE, follow: true }, {} as never);
+
+    view.followCursor();
+    expect(shown(view)).toBe(0);
+  });
+
+  it('keeps the cursor on its slide when the slides are drawn again', async () => {
+    vi.useFakeTimers();
+    const { view, editor, emit } = await openView({ editorText: 'a', follow: true });
+    typingAt(editor, 5);
+    view.followCursor();
+    expect(shown(view)).toBe(1);
+
+    // A new slide appears above the cursor, which pushes it to the third.
+    setDeck(slidesHtml(4), undefined, [0, 2, 4, 8]);
+    if (editor) editor.text = 'ab';
+    emit('workspace:editor-change', {}, { file: { path: NOTE } });
+    await vi.advanceTimersByTimeAsync(300);
+
+    expect(slides(view)).toHaveLength(4);
+    expect(shown(view)).toBe(2);
+  });
+
+  it('does not move a view that does not follow when the slides are drawn again', async () => {
+    vi.useFakeTimers();
+    const { view, editor, emit } = await openView({ editorText: 'a' });
+    press(view, 'ArrowRight');
+    typingAt(editor, 9);
+
+    if (editor) editor.text = 'ab';
+    emit('workspace:editor-change', {}, { file: { path: NOTE } });
+    await vi.advanceTimersByTimeAsync(300);
+
+    expect(shown(view)).toBe(1);
   });
 });
 

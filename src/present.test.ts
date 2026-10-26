@@ -26,7 +26,7 @@ function setup(file: TFile | null = new TFile('aulas/intro.md')) {
   return { leaf, workspace, source, present, calls };
 }
 
-const state = { file: 'aulas/intro.md' };
+const state = { file: 'aulas/intro.md', follow: false };
 
 describe('presenting in a tab', () => {
   it('opens a new tab with the slides and gives them the keyboard', async () => {
@@ -54,7 +54,7 @@ describe('presenting beside the note', () => {
     expect(leaf.setViewState).toHaveBeenCalledWith({
       type: 'spotlight-slides-view',
       active: false,
-      state,
+      state: { ...state, follow: true },
     });
   });
 

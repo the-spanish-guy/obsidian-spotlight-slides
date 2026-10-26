@@ -1,10 +1,3 @@
-// Turns a note into Marp markdown.
-//
-// A note with `marp: true` in its front matter is a deck written for Marp and
-// is passed through untouched. Any other note is split into slides here: before
-// each section heading (the shallowest level that appears at least twice) and at
-// every horizontal rule; the note's own front matter is left out.
-
 import { fencedLines, FRONT_MATTER } from './markdown';
 
 const MARP_FLAG = /^marp:[ \t]*["']?true["']?[ \t]*$/im;
@@ -69,27 +62,51 @@ function sectionLevel(lines: Line[]): number {
   return repeated.length > 0 ? Math.min(...repeated) : 0;
 }
 
-export function splitIntoSlides(markdown: string): string[] {
+interface Slice {
+  text: string;
+  start: number;
+}
+
+function sliceSlides(markdown: string): Slice[] {
   const lines = classify(markdown.split(/\r?\n/));
   const level = sectionLevel(lines);
 
-  const slides: string[] = [];
+  const slices: Slice[] = [];
   let current: string[] = [];
+  let first: number | undefined;
   const flush = () => {
-    const slide = current.join('\n').trim();
-    if (slide !== '') slides.push(slide);
+    const text = current.join('\n').trim();
+    if (text !== '') slices.push({ text, start: first ?? 0 });
     current = [];
+    first = undefined;
   };
 
-  for (const line of lines) {
+  lines.forEach((line, index) => {
     if (line.rule) {
       flush();
-    } else {
-      if (level > 0 && line.heading === level) flush();
-      current.push(line.text);
+      return;
     }
-  }
+    if (level > 0 && line.heading === level) flush();
+    current.push(line.text);
+    if (first === undefined && line.text.trim() !== '') first = index;
+  });
   flush();
 
-  return slides;
+  return slices;
+}
+
+export function splitIntoSlides(markdown: string): string[] {
+  return sliceSlides(markdown).map((slice) => slice.text);
+}
+
+// The line of the note each slide starts at, for a note in automatic mode (the
+// first line of the note is 0). A Marp deck has none: Marp knows its own.
+export function autoSlideStarts(markdown: string): number[] {
+  if (isMarpDeck(markdown)) return [];
+
+  const frontMatter = FRONT_MATTER.exec(markdown)?.[0] ?? '';
+  const offset = frontMatter.split('\n').length - 1;
+  return sliceSlides(stripFrontMatter(markdown)).map(
+    (slice) => slice.start + offset,
+  );
 }

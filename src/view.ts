@@ -1,6 +1,7 @@
 import {
   Component,
   debounce,
+  type Editor,
   ItemView,
   MarkdownView,
   type TFile,
@@ -16,6 +17,7 @@ export const VIEW_TYPE_SPOTLIGHT = 'spotlight-slides-view';
 
 interface SpotlightViewState extends Record<string, unknown> {
   file?: string;
+  follow?: boolean;
 }
 
 export class SpotlightView extends ItemView {
@@ -28,6 +30,8 @@ export class SpotlightView extends ItemView {
   private current = 0;
   private focused = false;
   private lastMarkdown: string | undefined;
+  private follow = false;
+  private slideStarts: number[] = [];
 
   private readonly scheduleRender = debounce(
     () => void this.render(),
@@ -48,7 +52,7 @@ export class SpotlightView extends ItemView {
   }
 
   getState(): SpotlightViewState {
-    return { file: this.filePath };
+    return { file: this.filePath, follow: this.follow };
   }
 
   async setState(
@@ -56,6 +60,7 @@ export class SpotlightView extends ItemView {
     result: ViewStateResult,
   ): Promise<void> {
     this.filePath = state.file;
+    this.follow = state.follow === true;
     this.lastMarkdown = undefined;
     await super.setState(state, result);
     await this.render();
@@ -165,6 +170,8 @@ export class SpotlightView extends ItemView {
       deck,
     );
 
+    this.slideStarts = deck.slideStarts;
+    this.current = this.slideAtCursor(file) ?? this.current;
     this.show(this.current);
     if (!this.focused) {
       this.focused = true;
@@ -172,18 +179,42 @@ export class SpotlightView extends ItemView {
     }
   }
 
-  private currentText(file: TFile): Promise<string> {
+  private editorFor(file: TFile): Editor | undefined {
     for (const leaf of this.app.workspace.getLeavesOfType('markdown')) {
       const view = leaf.view;
       if (view instanceof MarkdownView && view.file?.path === file.path) {
-        return Promise.resolve(view.editor.getValue());
+        return view.editor;
       }
     }
-    return this.app.vault.cachedRead(file);
+    return undefined;
   }
 
-  // Finds an image the way Obsidian resolves a link, then falls back to a path
-  // relative to the note's own folder.
+  private currentText(file: TFile): Promise<string> {
+    const editor = this.editorFor(file);
+    return editor
+      ? Promise.resolve(editor.getValue())
+      : this.app.vault.cachedRead(file);
+  }
+
+  private slideAtCursor(file: TFile): number | undefined {
+    const editor = this.follow ? this.editorFor(file) : undefined;
+    if (!editor || this.slideStarts.length === 0) return undefined;
+
+    const line = editor.getCursor().line;
+    return this.slideStarts.reduce(
+      (slide, start, i) => (start <= line ? i : slide),
+      0,
+    );
+  }
+
+  followCursor(): void {
+    const file = this.filePath
+      ? this.app.vault.getFileByPath(this.filePath)
+      : null;
+    const slide = file ? this.slideAtCursor(file) : undefined;
+    if (slide !== undefined && slide !== this.current) this.show(slide);
+  }
+
   private resolveImage(linkpath: string, note: TFile): string | null {
     const file =
       this.app.metadataCache.getFirstLinkpathDest(linkpath, note.path) ??

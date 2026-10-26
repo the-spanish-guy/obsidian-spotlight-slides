@@ -1,4 +1,5 @@
 import { MarkdownView, Plugin } from 'obsidian';
+import { cursorFollower } from './follow-cursor';
 import { type Placement, presentNote } from './present';
 import { SpotlightView, VIEW_TYPE_SPOTLIGHT } from './view';
 
@@ -16,6 +17,7 @@ const COMMANDS: ReadonlyArray<{ id: string; name: string; placement: Placement }
 export default class SpotlightSlidesPlugin extends Plugin {
   onload() {
     this.registerView(VIEW_TYPE_SPOTLIGHT, (leaf) => new SpotlightView(leaf));
+    this.registerEditorExtension(cursorFollower(this.app));
 
     this.addRibbonIcon('presentation', 'Present current note', () =>
       this.present('tab'),

@@ -77,6 +77,7 @@ export class Plugin extends Component {
   commands: Array<Record<string, unknown>> = [];
   ribbons: Array<{ icon: string; title: string; callback: () => void }> = [];
   views = new Map<string, (leaf: unknown) => unknown>();
+  extensions: unknown[] = [];
 
   addCommand(command: Record<string, unknown>): void {
     this.commands.push(command);
@@ -88,6 +89,10 @@ export class Plugin extends Component {
 
   registerView(type: string, creator: (leaf: unknown) => unknown): void {
     this.views.set(type, creator);
+  }
+
+  registerEditorExtension(extension: unknown): void {
+    this.extensions.push(extension);
   }
 }
 
@@ -119,7 +124,6 @@ export const MarkdownRenderer = {
   },
 };
 
-// Lets a test decide what Obsidian renders for a piece of Markdown.
 export function setMarkdownRenderer(next: Renderer | undefined): void {
   renderer = next ?? defaultRenderer;
 }

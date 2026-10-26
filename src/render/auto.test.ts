@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { isMarpDeck, splitIntoSlides, toMarpMarkdown } from './auto';
+import {
+  autoSlideStarts,
+  isMarpDeck,
+  splitIntoSlides,
+  toMarpMarkdown,
+} from './auto';
 
 describe('splitIntoSlides', () => {
   it('cuts at the shallowest level used at least twice', () => {
@@ -92,5 +97,61 @@ describe('toMarpMarkdown', () => {
   it('passes a Marp deck through untouched', () => {
     const md = '---\nmarp: true\ntheme: gaia\n---\n# A\n\n---\n\n# B';
     expect(toMarpMarkdown(md)).toBe(md);
+  });
+});
+
+describe('autoSlideStarts', () => {
+  it('gives the line each slide starts at', () => {
+    // 0 "## A", 1 "texto", 2 "## B", 3 "outro"
+    expect(autoSlideStarts('## A\ntexto\n## B\noutro')).toEqual([0, 2]);
+  });
+
+  it('starts a slide cut by a rule at the first line after the rule', () => {
+    // 0 "um", 1 "", 2 "---", 3 "", 4 "dois", 5 "", 6 "---", 7 "", 8 "três"
+    expect(
+      autoSlideStarts('um\n\n---\n\ndois\n\n---\n\ntrês'),
+    ).toEqual([0, 4, 8]);
+  });
+
+  it('skips blank lines at the top of a slide', () => {
+    expect(autoSlideStarts('## A\n\n\n## B\n\n\ntexto\n## C')).toEqual([0, 3, 7]);
+  });
+
+  it('counts the front matter lines, which are not part of any slide', () => {
+    // 0 "---", 1 "t: x", 2 "---", 3 "## A", 4 "a", 5 "## B"
+    expect(autoSlideStarts('---\nt: x\n---\n## A\na\n## B')).toEqual([3, 5]);
+  });
+
+  it('does not cut inside a code fence', () => {
+    // 0 "## A", 1 "```", 2 "## fake", 3 "---", 4 "```", 5 "## B"
+    expect(autoSlideStarts('## A\n```\n## fake\n---\n```\n## B')).toEqual([0, 5]);
+  });
+
+  it('forgets a slide that would be empty, as the slides do', () => {
+    // 0 "um", 1 "", 2 "---", 3 "", 4 "---", 5 "", 6 "dois"
+    expect(autoSlideStarts('um\n\n---\n\n---\n\ndois')).toEqual([0, 6]);
+  });
+
+  it('works with CRLF line endings', () => {
+    expect(autoSlideStarts('## A\r\ntexto\r\n## B\r\noutro')).toEqual([0, 2]);
+  });
+
+  it('has none for a Marp deck, whose slides Marp knows', () => {
+    expect(autoSlideStarts('---\nmarp: true\n---\n\n# A\n\n---\n\n# B')).toEqual([]);
+  });
+
+  it('always has as many starts as there are slides', () => {
+    const notes = [
+      '',
+      'só texto',
+      '## A\n## B\n## C',
+      '# t\n## A\nx\n## B\ny',
+      'a\n---\nb\n***\nc\n___\nd',
+      '---\nx: 1\n---\n## A\n\n---\n\n## B',
+      '## A\n```\n---\n```\n## B\n\n\n',
+    ];
+    for (const note of notes) {
+      expect(autoSlideStarts(note)).toHaveLength(splitIntoSlides(note.replace(/^---[\s\S]*?\n---\n/, '')).length);
+    }
   });
 });

@@ -9,6 +9,8 @@ vi.mock('./view', () => ({
   },
 }));
 
+vi.mock('./follow-cursor', () => ({ cursorFollower: () => 'cursor-extension' }));
+
 const presentNote = vi.fn((..._args: unknown[]) => Promise.resolve());
 vi.mock('./present', () => ({
   presentNote: (...args: unknown[]) => presentNote(...args),
@@ -25,6 +27,7 @@ interface FakePlugin {
   commands: Array<Record<string, unknown>>;
   ribbons: Array<{ icon: string; title: string; callback: () => void }>;
   views: Map<string, (leaf: unknown) => unknown>;
+  extensions: unknown[];
   onload(): void;
 }
 
@@ -66,6 +69,11 @@ describe('the plugin', () => {
       { id: 'present-to-the-side', name: 'Present to the side' },
       { id: 'present-in-new-window', name: 'Present in new window' },
     ]);
+  });
+
+  it('registers the editor extension that makes the slides follow the cursor', () => {
+    const { plugin } = setup();
+    expect(plugin.extensions).toEqual(['cursor-extension']);
   });
 
   it('creates the view for a leaf', () => {

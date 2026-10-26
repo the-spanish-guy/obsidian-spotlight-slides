@@ -143,3 +143,54 @@ describe('safety and privacy', () => {
     expect(css).not.toMatch(/mjx|katex/i);
   });
 });
+
+describe('where each slide starts', () => {
+  const starts = (markdown: string) => render(markdown).slideStarts;
+
+  it('gives the line of each slide of a note in automatic mode', () => {
+    // 0 "## A", 1 "texto", 2 "## B", 3 "outro"
+    expect(starts('## A\ntexto\n## B\noutro')).toEqual([0, 2]);
+  });
+
+  it('asks Marp for a Marp deck, front matter included', () => {
+    // 0 "---", 1 "marp: true", 2 "---", 3 "", 4 "# A", 5 "", 6 "---", 7 "", 8 "# B"
+    expect(starts('---\nmarp: true\n---\n\n# A\n\n---\n\n# B')).toEqual([0, 6]);
+  });
+
+  it('follows every kind of break Marp knows', () => {
+    const note = '---\nmarp: true\n---\n\n# A\n\n***\n\n# B\n\n___\n\n# C';
+    expect(starts(note)).toEqual([0, 6, 10]);
+  });
+
+  it('follows headingDivider, which breaks at headings', () => {
+    const note =
+      '---\nmarp: true\nheadingDivider: 2\n---\n\n## A\ntexto\n\n## B\ntexto\n\n## C';
+    expect(starts(note)).toEqual([0, 8, 11]);
+  });
+
+  it('does not break at a rule inside a code block', () => {
+    const note = '---\nmarp: true\n---\n\n# A\n\n```md\n---\n```\n\n---\n\n# B';
+    expect(starts(note)).toEqual([0, 10]);
+  });
+
+  it('has as many starts as slides drawn', () => {
+    const notes = [
+      '## A\n## B\n## C',
+      'a\n\n---\n\nb\n\n---\n\nc',
+      '---\nmarp: true\n---\n\n# A\n\n---\n\n# B\n\n---\n\n# C',
+    ];
+    for (const note of notes) {
+      const deck = render(note);
+      expect(deck.slideStarts).toHaveLength(slideCount(deck.html));
+    }
+  });
+
+  it('gives none when the cuts changed where the note breaks', () => {
+    // A callout is cut out before Marp, which leaves the rule under it as a
+    // break. Read on the note as written, the rule looks like a heading
+    // underline, so the counts disagree and nothing is trusted.
+    const deck = render('> [!note] A\n> b\n---\n\ntexto');
+    expect(slideCount(deck.html)).toBe(2);
+    expect(deck.slideStarts).toEqual([]);
+  });
+});
