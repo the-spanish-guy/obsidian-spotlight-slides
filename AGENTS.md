@@ -49,7 +49,8 @@ src/
     postprocess.ts     Obsidian renders each piece back into the slides
     theme.ts           Marp theme built on Obsidian's CSS variables
   test/                stand-in for the `obsidian` module and DOM helpers for tests
-esbuild.config.mjs     bundling; esbuild.stubs.mjs empties highlight.js, MathJax and KaTeX
+esbuild.config.mjs     bundling; esbuild.stubs.mjs empties highlight.js, MathJax and KaTeX, and
+                       fs, path, url and source-map-js when imported from inside postcss
 docs/demo/             notes the README images were taken from
 docs/images/           README images, in en/ and pt-BR/
 ```
@@ -66,6 +67,7 @@ docs/images/           README images, in en/ and pt-BR/
 - UI text: sentence case, short, no jargon. Bold the literal UI labels in docs and use arrows for navigation: **Settings → Community plugins**.
 - Commits: short and direct, `type: summary` with `feat`, `fix`, `perf`, `refactor`, `test`, `docs` or `chore`. Do not commit or push unless asked.
 - Dependencies: exact versions, no `^` (`.npmrc` sets `save-exact`), and the latest that the peers allow. Today TypeScript stays on 6 until `typescript-eslint` accepts 7, ESLint on 9 until `eslint-plugin-obsidianmd` accepts 10, and `marp-core` on 4 until 5 leaves release candidate. The `@codemirror/*` packages use the versions `obsidian` declares and are external to the bundle.
+- `overrides` in `package.json` pins `katex` and `@xmldom/xmldom` to patched versions. Neither is bundled, but the directory scanner reads `package-lock.json` and flags the vulnerable ones. Keep them until `marp-core` 5 makes the `katex` one unnecessary, and check `npm audit` after any update.
 
 ## Testing
 
@@ -78,6 +80,8 @@ docs/images/           README images, in en/ and pt-BR/
 
 - **Manifest:** never change `id` (`spotlight-slides`) or the command IDs (`present-current-note`, `present-to-the-side`, `present-in-new-window`) after release. `minAppVersion` is 1.5.7; the lint rule `obsidianmd/no-unsupported-api` fails when code uses an API newer than that, so run `npm run lint` after touching an Obsidian API.
 - **Releases:** the tag equals the `version` in `manifest.json`, with no leading `v`. Attach only `main.js`, `manifest.json` and `styles.css`. The directory reads `manifest.json` from the default branch, so it must be committed before submitting at community.obsidian.md.
+- **Release flow:** work on a branch and run **Review branch** in the directory dashboard (the automated review, without a release), open a PR and merge, then on `main` run `npm version patch` (commit plus annotated tag) and `git push --follow-tags`. `release.yml` creates a draft release: compare the SHA-256 of its assets with a local `npm run build` (the build is reproducible), publish it with the label **None**, then **Check for new releases** and **Publish** in the dashboard. The `description` must not contain the word "Obsidian".
+- **Accepted warning:** the directory's CSS lint flags `text-decoration-style` and `text-decoration-color` in `styles.css` (partial support in Obsidian 1.4.5). They stay: the shorthand did not clear it and the plugin needs 1.5.7.
 - **Privacy:** the plugin makes no network request and has no telemetry. Marp runs with `html: false`, `script: false` and its emoji conversion off (it would fetch Twemoji from a CDN). External links open only when the user selects them. Do not add network calls without an obvious reason and a note in the README.
 - **Cleanup:** register every listener with the `register*` helpers so the plugin unloads cleanly. The view can live in a popout window, so use `contentEl.ownerDocument.defaultView` for things such as `ResizeObserver`, not the global `window`.
 - **Performance:** keep startup light. Marp is created on first use, renders are debounced and skipped when the text has not changed, and the bundle is about 690 KB. Avoid large dependencies; Marp's highlight.js, MathJax and KaTeX are stubbed out because Obsidian does that work.

@@ -24,7 +24,7 @@ Spotlight Slides is for the desktop app, and needs Obsidian 1.5.7 or newer.
 
 ### From Community plugins
 
-The plugin is not listed there yet. Once it is, go to **Settings → Community plugins**, select **Browse**, search for "Spotlight Slides", then select **Install** and **Enable**.
+Go to **Settings → Community plugins**, select **Browse**, search for "Spotlight Slides", then select **Install** and **Enable**.
 
 ### Manually
 
